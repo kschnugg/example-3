@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Board Design Team — Task Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     SIDEBAR
+════════════════════════════════════════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="7" rx="1"/>
+        <rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/>
+        <rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+    </div>
+    <span class="brand-name">BoardFlow</span>
+    <button class="sidebar-toggle" id="sidebarToggle" title="Collapse sidebar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M15 18l-6-6 6-6"/>
+      </svg>
+    </button>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">
+      <span class="nav-label">WORKSPACE</span>
+      <a href="#" class="nav-item active" data-view="overview">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Overview</span>
+      </a>
+      <a href="#" class="nav-item" data-view="today">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>Today</span>
+        <span class="nav-badge">7</span>
+      </a>
+      <a href="#" class="nav-item" data-view="kanban">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="12" rx="1"/><rect x="17" y="3" width="5" height="15" rx="1"/></svg>
+        <span>Board</span>
+      </a>
+      <a href="#" class="nav-item" data-view="team">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Team</span>
+      </a>
+      <a href="#" class="nav-item" data-view="my-tasks">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>My Tasks</span>
+        <span class="nav-badge urgent">3</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <span class="nav-label">PROJECTS</span>
+      <a href="#" class="nav-item">
+        <span class="project-dot" style="background:#6366f1"></span>
+        <span>PCB Layout v4</span>
+      </a>
+      <a href="#" class="nav-item">
+        <span class="project-dot" style="background:#22c55e"></span>
+        <span>Schematic Review</span>
+      </a>
+      <a href="#" class="nav-item">
+        <span class="project-dot" style="background:#f59e0b"></span>
+        <span>BOM Validation</span>
+      </a>
+      <a href="#" class="nav-item">
+        <span class="project-dot" style="background:#ec4899"></span>
+        <span>Signal Integrity</span>
+      </a>
+      <a href="#" class="nav-item add-project">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Add Project</span>
+      </a>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-avatar-wrap">
+      <div class="avatar" style="background:#6366f1">AL</div>
+      <div>
+        <div class="user-name">Alex Laurent</div>
+        <div class="user-role">Team Leader</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════════════════════
+     MAIN CONTENT
+════════════════════════════════════════════ -->
+<main class="main" id="main">
+
+  <!-- TOP HEADER -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1 class="page-title" id="pageTitle">Overview</h1>
+      <div class="date-chip">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span id="currentDate"></span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="search-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="search-input" placeholder="Search tasks…" id="searchInput" />
+      </div>
+      <div class="filter-group">
+        <select class="filter-select" id="filterStatus">
+          <option value="all">All Status</option>
+          <option value="todo">To Do</option>
+          <option value="in-progress">In Progress</option>
+          <option value="review">In Review</option>
+          <option value="done">Done</option>
+        </select>
+        <select class="filter-select" id="filterPriority">
+          <option value="all">All Priority</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      <button class="btn-primary" id="addTaskBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Task
+      </button>
+    </div>
+  </header>
+
+  <!-- VIEW CONTAINERS -->
+  <div class="view-container">
+
+    <!-- ─────────────────────────────────────
+         VIEW: OVERVIEW
+    ───────────────────────────────────── -->
+    <div class="view" id="view-overview">
+
+      <!-- STATS ROW -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(99,102,241,.12);color:#6366f1">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          </div>
+          <div>
+            <div class="stat-value">34</div>
+            <div class="stat-label">Total Tasks</div>
+          </div>
+          <div class="stat-trend up">+4 this week</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(249,115,22,.12);color:#f97316">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div>
+            <div class="stat-value">12</div>
+            <div class="stat-label">In Progress</div>
+          </div>
+          <div class="stat-trend neutral">same as yesterday</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(239,68,68,.12);color:#ef4444">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div>
+            <div class="stat-value">3</div>
+            <div class="stat-label">Overdue</div>
+          </div>
+          <div class="stat-trend down">-1 resolved</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(34,197,94,.12);color:#22c55e">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div>
+            <div class="stat-value">19</div>
+            <div class="stat-label">Completed</div>
+          </div>
+          <div class="stat-trend up">+6 this week</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(168,85,247,.12);color:#a855f7">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div>
+            <div class="stat-value">5</div>
+            <div class="stat-label">Team Members</div>
+          </div>
+          <div class="stat-trend neutral">all active</div>
+        </div>
+      </div>
+
+      <!-- TODAY SECTION -->
+      <section class="section">
+        <div class="section-header">
+          <div class="section-title-group">
+            <h2 class="section-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Today's Tasks
+            </h2>
+            <span class="section-count">7 tasks</span>
+          </div>
+          <div class="section-actions">
+            <button class="btn-ghost" onclick="switchView('today')">View All</button>
+          </div>
+        </div>
+        <div class="today-tasks" id="todayTasksOverview"></div>
+      </section>
+
+      <!-- TEAM OVERVIEW -->
+      <section class="section">
+        <div class="section-header">
+          <div class="section-title-group">
+            <h2 class="section-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Team Workload
+            </h2>
+            <span class="section-count">5 members</span>
+          </div>
+          <button class="btn-ghost" onclick="switchView('team')">View Team</button>
+        </div>
+        <div class="team-grid" id="teamWorkloadGrid"></div>
+      </section>
+
+      <!-- MY TASKS (LEADER) -->
+      <section class="section">
+        <div class="section-header">
+          <div class="section-title-group">
+            <h2 class="section-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Leader Tasks
+            </h2>
+            <span class="section-count">8 tasks</span>
+          </div>
+          <button class="btn-ghost" onclick="switchView('my-tasks')">View All</button>
+        </div>
+        <div class="task-list" id="leaderTasksOverview"></div>
+      </section>
+
+    </div><!-- /view-overview -->
+
+    <!-- ─────────────────────────────────────
+         VIEW: TODAY
+    ───────────────────────────────────── -->
+    <div class="view hidden" id="view-today">
+      <div class="today-header">
+        <div>
+          <h2 class="today-greeting" id="todayGreeting">Good morning, Alex</h2>
+          <p class="today-sub">You have <strong>7 tasks</strong> scheduled for today.</p>
+        </div>
+        <div class="progress-ring-wrap">
+          <svg class="progress-ring" width="80" height="80">
+            <circle class="ring-bg" cx="40" cy="40" r="32"/>
+            <circle class="ring-fill" cx="40" cy="40" r="32" id="ringFill"
+              stroke-dasharray="201" stroke-dashoffset="130"/>
+          </svg>
+          <div class="ring-label">
+            <div class="ring-pct" id="ringPct">35%</div>
+            <div class="ring-sub">done</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="today-columns">
+        <div class="today-col">
+          <div class="today-col-header">
+            <span class="col-badge critical">Critical</span>
+            <span class="col-count" id="criticalCount">2</span>
+          </div>
+          <div class="today-col-tasks" id="criticalTasks"></div>
+        </div>
+        <div class="today-col">
+          <div class="today-col-header">
+            <span class="col-badge high">High</span>
+            <span class="col-count" id="highCount">3</span>
+          </div>
+          <div class="today-col-tasks" id="highTasks"></div>
+        </div>
+        <div class="today-col">
+          <div class="today-col-header">
+            <span class="col-badge medium">Medium</span>
+            <span class="col-count" id="mediumCount">2</span>
+          </div>
+          <div class="today-col-tasks" id="mediumTasks"></div>
+        </div>
+      </div>
+    </div><!-- /view-today -->
+
+    <!-- ─────────────────────────────────────
+         VIEW: KANBAN
+    ───────────────────────────────────── -->
+    <div class="view hidden" id="view-kanban">
+      <div class="kanban-toolbar">
+        <div class="kanban-filters">
+          <button class="kb-filter active" data-filter="all">All Members</button>
+          <button class="kb-filter" data-filter="AL">Alex (Leader)</button>
+          <button class="kb-filter" data-filter="SM">Sara</button>
+          <button class="kb-filter" data-filter="JD">James</button>
+          <button class="kb-filter" data-filter="MP">Mia</button>
+          <button class="kb-filter" data-filter="RK">Ryan</button>
+          <button class="kb-filter" data-filter="TW">Tara</button>
+        </div>
+      </div>
+      <div class="kanban-board" id="kanbanBoard"></div>
+    </div><!-- /view-kanban -->
+
+    <!-- ─────────────────────────────────────
+         VIEW: TEAM
+    ───────────────────────────────────── -->
+    <div class="view hidden" id="view-team">
+      <div class="team-members-grid" id="teamMembersGrid"></div>
+    </div><!-- /view-team -->
+
+    <!-- ─────────────────────────────────────
+         VIEW: MY TASKS (LEADER)
+    ───────────────────────────────────── -->
+    <div class="view hidden" id="view-my-tasks">
+      <div class="my-tasks-wrap">
+        <div class="leader-profile">
+          <div class="avatar lg" style="background:#6366f1">AL</div>
+          <div>
+            <div class="leader-name">Alex Laurent</div>
+            <div class="leader-role">Board Design Team Leader</div>
+            <div class="leader-stats">
+              <span class="lstat"><span class="lstat-val">8</span> tasks</span>
+              <span class="lstat"><span class="lstat-val">3</span> in progress</span>
+              <span class="lstat urgent"><span class="lstat-val">2</span> overdue</span>
+            </div>
+          </div>
+        </div>
+        <div class="task-list full" id="leaderTasksFull"></div>
+      </div>
+    </div><!-- /view-my-tasks -->
+
+  </div><!-- /view-container -->
+
+</main>
+
+<!-- ═══════════════════════════════════════════
+     ADD TASK MODAL
+════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">New Task</h3>
+      <button class="modal-close" id="modalClose">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form class="modal-form" id="taskForm">
+      <div class="form-group">
+        <label class="form-label">Task Title *</label>
+        <input type="text" class="form-input" id="taskTitle" placeholder="What needs to be done?" required />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Assignee</label>
+          <select class="form-input" id="taskAssignee">
+            <option value="AL">Alex Laurent (Leader)</option>
+            <option value="SM">Sara Mitchell</option>
+            <option value="JD">James Dupont</option>
+            <option value="MP">Mia Park</option>
+            <option value="RK">Ryan Kim</option>
+            <option value="TW">Tara Wilson</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-input" id="taskPriority">
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium" selected>Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-input" id="taskStatus">
+            <option value="todo">To Do</option>
+            <option value="in-progress">In Progress</option>
+            <option value="review">In Review</option>
+            <option value="done">Done</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Due Date</label>
+          <input type="date" class="form-input" id="taskDue" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Project</label>
+        <select class="form-input" id="taskProject">
+          <option value="PCB Layout v4">PCB Layout v4</option>
+          <option value="Schematic Review">Schematic Review</option>
+          <option value="BOM Validation">BOM Validation</option>
+          <option value="Signal Integrity">Signal Integrity</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-input" id="taskDesc" rows="3" placeholder="Add task details…"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" id="cancelBtn">Cancel</button>
+        <button type="submit" class="btn-primary">Create Task</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
