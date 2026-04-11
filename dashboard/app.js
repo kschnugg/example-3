@@ -735,7 +735,7 @@ taskForm.addEventListener('submit', (e) => {
 });
 
 // ═══════════════════════════════════════════════════
-// EXCEL IMPORT / EXPORT  (requires SheetJS / xlsx.js)
+// CSV IMPORT  +  SPREADSHEETML EXPORT  (no dependencies)
 // ═══════════════════════════════════════════════════
 
 // ─── TOAST HELPER ─────────────────────────────────
@@ -801,19 +801,12 @@ function normaliseAssignee(v) {
 
 function normaliseDate(v) {
   if (!v) return '';
-  // SheetJS may give a JS serial number for dates
-  if (typeof v === 'number') {
-    const d = XLSX.SSF.parse_date_code(v);
-    if (d) {
-      const month = String(d.m).padStart(2, '0');
-      const day   = String(d.d).padStart(2, '0');
-      return `${d.y}-${month}-${day}`;
-    }
-  }
   const s = v.toString().trim();
-  // Already ISO
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  // Try parsing
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;           // Already ISO
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {             // MM/DD/YYYY or D/M/YYYY
+    const [a, b, y] = s.split('/');
+    return `${y}-${a.padStart(2,'0')}-${b.padStart(2,'0')}`;
+  }
   const parsed = new Date(s);
   if (!isNaN(parsed)) return fmt(parsed);
   return '';
@@ -852,6 +845,43 @@ function rowsToTasks(rows) {
 let pendingImportRows = null;
 let pendingFileName   = '';
 
+// ─── RFC-4180 CSV PARSER ──────────────────────────
+// Returns an array of rows; each row is an array of string values.
+function parseCSV(text) {
+  const rows = [];
+  const src  = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  let pos = 0;
+
+  while (pos < src.length) {
+    const row = [];
+    // Parse fields until end-of-line or end-of-input
+    while (pos < src.length && src[pos] !== '\n') {
+      let field = '';
+      if (src[pos] === '"') {
+        pos++; // skip opening quote
+        while (pos < src.length) {
+          if (src[pos] === '"') {
+            if (src[pos + 1] === '"') { field += '"'; pos += 2; } // escaped quote
+            else                      { pos++; break; }           // closing quote
+          } else {
+            field += src[pos++];
+          }
+        }
+      } else {
+        while (pos < src.length && src[pos] !== ',' && src[pos] !== '\n') {
+          field += src[pos++];
+        }
+      }
+      row.push(field);
+      if (pos < src.length && src[pos] === ',') pos++; // skip comma
+    }
+    if (pos < src.length && src[pos] === '\n') pos++; // skip newline
+    // Skip completely empty rows
+    if (!(row.length === 1 && row[0] === '')) rows.push(row);
+  }
+  return rows;
+}
+
 // ─── IMPORT: FILE SELECTED ────────────────────────
 document.getElementById('xlsxInput').addEventListener('change', (e) => {
   const file = e.target.files[0];
@@ -861,22 +891,17 @@ document.getElementById('xlsxInput').addEventListener('change', (e) => {
   const reader = new FileReader();
   reader.onload = (ev) => {
     try {
-      const data = new Uint8Array(ev.target.result);
-      const wb   = XLSX.read(data, { type: 'array', cellDates: false });
-      const ws   = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-
+      const rows   = parseCSV(ev.target.result);
       const parsed = rowsToTasks(rows);
+
       if (parsed.length === 0) {
-        showToast('No valid tasks found in file — check column headers.', 'error');
+        showToast('No valid tasks found — check column headers.', 'error');
         return;
       }
 
-      // Store for confirm step
       pendingImportRows = parsed;
       pendingFileName   = file.name;
 
-      // Fill info panel in modal
       document.getElementById('importFileInfo').innerHTML = `
         <svg class="file-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -886,16 +911,16 @@ document.getElementById('xlsxInput').addEventListener('change', (e) => {
         </svg>
         <div>
           <div class="import-file-name">${file.name}</div>
-          <div class="import-file-meta">${parsed.length} task${parsed.length !== 1 ? 's' : ''} found across ${rows.length - 1} row${rows.length - 1 !== 1 ? 's' : ''}</div>
+          <div class="import-file-meta">${parsed.length} task${parsed.length !== 1 ? 's' : ''} found across ${rows.length - 1} data row${rows.length - 1 !== 1 ? 's' : ''}</div>
         </div>`;
 
       document.getElementById('importOverlay').classList.remove('hidden');
     } catch (err) {
-      showToast('Could not read the file. Make sure it is a valid .xlsx or .csv.', 'error');
+      showToast('Could not read the file. Make sure it is a valid .csv.', 'error');
       console.error(err);
     }
   };
-  reader.readAsArrayBuffer(file);
+  reader.readAsText(file); // plain text — no ArrayBuffer needed
 });
 
 // ─── IMPORT: CONFIRM ──────────────────────────────
@@ -944,11 +969,34 @@ document.getElementById('importBtn').addEventListener('click', () => {
   document.getElementById('xlsxInput').click();
 });
 
-// ─── EXPORT TO EXCEL ──────────────────────────────
-document.getElementById('exportBtn').addEventListener('click', exportToExcel);
+// ─── EXPORT (SpreadsheetML + CSV — no dependencies) ─
+document.getElementById('exportBtn').addEventListener('click', exportToSpreadsheet);
 
-function exportToExcel() {
-  const wb = XLSX.utils.book_new();
+// Build an XML-escaped string safe for SpreadsheetML cell content
+function xmlEsc(v) {
+  return String(v === null || v === undefined ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Convert a 2-D array to a SpreadsheetML <Worksheet> string
+function sheetToXML(name, rows) {
+  const rowsXml = rows.map(row => {
+    const cells = row.map(val => {
+      const isNum = typeof val === 'number';
+      return `<Cell><Data ss:Type="${isNum ? 'Number' : 'String'}">${xmlEsc(val)}</Data></Cell>`;
+    }).join('');
+    return `<Row>${cells}</Row>`;
+  }).join('');
+  return `<Worksheet ss:Name="${xmlEsc(name)}"><Table>${rowsXml}</Table></Worksheet>`;
+}
+
+// Build a multi-sheet SpreadsheetML workbook and trigger download as .xls
+// (SpreadsheetML is XML-based; Excel/LibreOffice open it natively — no ZIP needed)
+function exportToSpreadsheet() {
+  const dateStamp = todayStr.replace(/-/g, '');
 
   // ── Sheet 1: All Tasks ──────────────────────────
   const allHeaders = ['ID','Title','Assignee ID','Assignee Name','Priority','Status',
@@ -959,15 +1007,12 @@ function exportToExcel() {
     t.assignee,
     memberById(t.assignee)?.name || t.assignee,
     PRIORITY[t.priority]?.label || t.priority,
-    STATUS_LABEL[t.status] || t.status,
+    STATUS_LABEL[t.status]      || t.status,
     t.project,
-    t.due || '',
+    t.due  || '',
     t.desc || '',
     (t.tags || []).join(', '),
   ]);
-  const allSheet = XLSX.utils.aoa_to_sheet([allHeaders, ...allRows]);
-  applySheetStyle(allSheet, allHeaders.length, allRows.length);
-  XLSX.utils.book_append_sheet(wb, allSheet, 'All Tasks');
 
   // ── Sheet 2: Today's Tasks ──────────────────────
   const todayTasks = tasks.filter(t => isToday(t.due) || (isOverdue(t.due) && t.status !== 'done'));
@@ -975,51 +1020,49 @@ function exportToExcel() {
     t.title,
     memberById(t.assignee)?.name || t.assignee,
     PRIORITY[t.priority]?.label || t.priority,
-    STATUS_LABEL[t.status] || t.status,
+    STATUS_LABEL[t.status]      || t.status,
     t.project,
-    t.due || '',
+    t.due  || '',
     t.desc || '',
   ]);
-  const todaySheet = XLSX.utils.aoa_to_sheet(
-    [['Title','Assignee','Priority','Status','Project','Due Date','Description'], ...todayRows]
-  );
-  applySheetStyle(todaySheet, 7, todayRows.length);
-  XLSX.utils.book_append_sheet(wb, todaySheet, "Today's Tasks");
 
-  // ── Sheet 3: Per-Member Summary ─────────────────
-  const summaryHeaders = ['Member','Role','Total Tasks','Active','Done','Overdue'];
+  // ── Sheet 3: Team Summary ───────────────────────
   const summaryRows = TEAM.map(m => {
-    const mt      = tasks.filter(t => t.assignee === m.id);
-    const active  = mt.filter(t => t.status !== 'done').length;
-    const done    = mt.filter(t => t.status === 'done').length;
-    const overdue = mt.filter(t => isOverdue(t.due) && t.status !== 'done').length;
-    return [m.name, m.role, mt.length, active, done, overdue];
+    const mt = tasks.filter(t => t.assignee === m.id);
+    return [
+      m.name, m.role, mt.length,
+      mt.filter(t => t.status !== 'done').length,
+      mt.filter(t => t.status === 'done').length,
+      mt.filter(t => isOverdue(t.due) && t.status !== 'done').length,
+    ];
   });
-  const summarySheet = XLSX.utils.aoa_to_sheet([summaryHeaders, ...summaryRows]);
-  applySheetStyle(summarySheet, summaryHeaders.length, summaryRows.length);
-  XLSX.utils.book_append_sheet(wb, summarySheet, 'Team Summary');
 
-  // ── Download ────────────────────────────────────
-  const dateStamp = todayStr.replace(/-/g, '');
-  XLSX.writeFile(wb, `board-tasks-${dateStamp}.xlsx`);
-  showToast(`Exported ${tasks.length} tasks to board-tasks-${dateStamp}.xlsx`);
+  const xml = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<?mso-application progid="Excel.Sheet"?>',
+    '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"',
+    '  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">',
+    sheetToXML('All Tasks',     [allHeaders, ...allRows]),
+    sheetToXML("Today's Tasks", [['Title','Assignee','Priority','Status','Project','Due Date','Description'], ...todayRows]),
+    sheetToXML('Team Summary',  [['Member','Role','Total Tasks','Active','Done','Overdue'], ...summaryRows]),
+    '</Workbook>',
+  ].join('\n');
+
+  triggerDownload(xml, `board-tasks-${dateStamp}.xls`, 'application/vnd.ms-excel;charset=utf-8');
+  showToast(`Exported ${tasks.length} tasks to board-tasks-${dateStamp}.xls`);
 }
 
-// Set column widths for readability
-function applySheetStyle(ws, numCols, numRows) {
-  const colWidths = [
-    { wch: 6 },  // ID
-    { wch: 42 }, // Title
-    { wch: 12 }, // Assignee ID
-    { wch: 18 }, // Assignee Name
-    { wch: 10 }, // Priority
-    { wch: 14 }, // Status
-    { wch: 20 }, // Project
-    { wch: 12 }, // Due Date
-    { wch: 40 }, // Description
-    { wch: 20 }, // Tags
-  ].slice(0, numCols);
-  ws['!cols'] = colWidths;
+// ─── DOWNLOAD HELPER ──────────────────────────────
+function triggerDownload(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ─── INIT ──────────────────────────────────────────
