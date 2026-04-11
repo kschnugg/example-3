@@ -734,6 +734,294 @@ taskForm.addEventListener('submit', (e) => {
   renderAll();
 });
 
+// ═══════════════════════════════════════════════════
+// EXCEL IMPORT / EXPORT  (requires SheetJS / xlsx.js)
+// ═══════════════════════════════════════════════════
+
+// ─── TOAST HELPER ─────────────────────────────────
+let toastTimer;
+function showToast(msg, type = 'success') {
+  const toast = document.getElementById('toast');
+  const icon  = document.getElementById('toastIcon');
+  document.getElementById('toastMsg').textContent = msg;
+  icon.textContent = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
+  toast.className = `toast ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.add('hidden'), 4000);
+}
+
+// ─── COLUMN NAME NORMALISATION ─────────────────────
+// Maps flexible Excel headers → our internal field names
+const HEADER_MAP = {
+  'title': 'title', 'task': 'title', 'task title': 'title', 'name': 'title',
+  'assignee': 'assignee', 'assigned to': 'assignee', 'assignee id': 'assignee',
+  'member': 'assignee', 'owner': 'assignee',
+  'priority': 'priority',
+  'status': 'status',
+  'project': 'project',
+  'due': 'due', 'due date': 'due', 'deadline': 'due', 'date': 'due',
+  'description': 'desc', 'desc': 'desc', 'details': 'desc', 'notes': 'desc',
+  'tags': 'tags', 'labels': 'tags', 'tag': 'tags',
+};
+
+function normaliseHeader(h) {
+  return HEADER_MAP[(h || '').toString().trim().toLowerCase()] || null;
+}
+
+// ─── VALUE NORMALISATION ──────────────────────────
+function normalisePriority(v) {
+  const s = (v || '').toString().trim().toLowerCase();
+  if (s.includes('critical') || s === 'p0') return 'critical';
+  if (s.includes('high')     || s === 'p1') return 'high';
+  if (s.includes('medium')   || s === 'p2' || s === 'med') return 'medium';
+  if (s.includes('low')      || s === 'p3') return 'low';
+  return 'medium'; // default
+}
+
+function normaliseStatus(v) {
+  const s = (v || '').toString().trim().toLowerCase().replace(/\s+/g, '-');
+  if (s === 'todo' || s === 'to-do' || s === 'not-started' || s === 'open') return 'todo';
+  if (s === 'in-progress' || s === 'in-work' || s === 'wip' || s === 'active') return 'in-progress';
+  if (s === 'review' || s === 'in-review' || s === 'pending-review') return 'review';
+  if (s === 'done' || s === 'complete' || s === 'completed' || s === 'closed') return 'done';
+  return 'todo'; // default
+}
+
+function normaliseAssignee(v) {
+  const s = (v || '').toString().trim();
+  // First try exact ID match (AL, SM, JD, …)
+  const byId = TEAM.find(m => m.id.toLowerCase() === s.toLowerCase());
+  if (byId) return byId.id;
+  // Then try name match (partial, case-insensitive)
+  const byName = TEAM.find(m => m.name.toLowerCase().includes(s.toLowerCase()) ||
+                                 s.toLowerCase().includes(m.name.split(' ')[0].toLowerCase()));
+  if (byName) return byName.id;
+  return 'AL'; // default to leader
+}
+
+function normaliseDate(v) {
+  if (!v) return '';
+  // SheetJS may give a JS serial number for dates
+  if (typeof v === 'number') {
+    const d = XLSX.SSF.parse_date_code(v);
+    if (d) {
+      const month = String(d.m).padStart(2, '0');
+      const day   = String(d.d).padStart(2, '0');
+      return `${d.y}-${month}-${day}`;
+    }
+  }
+  const s = v.toString().trim();
+  // Already ISO
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // Try parsing
+  const parsed = new Date(s);
+  if (!isNaN(parsed)) return fmt(parsed);
+  return '';
+}
+
+// ─── PARSE ROWS → TASKS ───────────────────────────
+function rowsToTasks(rows) {
+  if (!rows || rows.length < 2) return [];
+  const headers = rows[0].map(h => normaliseHeader(h));
+  const result = [];
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const raw = {};
+    headers.forEach((field, idx) => {
+      if (field) raw[field] = row[idx];
+    });
+    if (!raw.title) continue; // skip rows with no title
+    result.push({
+      id:       Date.now() + i,
+      title:    raw.title.toString().trim(),
+      assignee: normaliseAssignee(raw.assignee),
+      priority: normalisePriority(raw.priority),
+      status:   normaliseStatus(raw.status),
+      project:  (raw.project || 'PCB Layout v4').toString().trim(),
+      due:      normaliseDate(raw.due),
+      desc:     (raw.desc || '').toString().trim(),
+      tags:     raw.tags
+                  ? raw.tags.toString().split(',').map(t => t.trim()).filter(Boolean)
+                  : [],
+    });
+  }
+  return result;
+}
+
+// ─── IMPORT STATE ─────────────────────────────────
+let pendingImportRows = null;
+let pendingFileName   = '';
+
+// ─── IMPORT: FILE SELECTED ────────────────────────
+document.getElementById('xlsxInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = ''; // reset so same file can be re-selected
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = new Uint8Array(ev.target.result);
+      const wb   = XLSX.read(data, { type: 'array', cellDates: false });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+      const parsed = rowsToTasks(rows);
+      if (parsed.length === 0) {
+        showToast('No valid tasks found in file — check column headers.', 'error');
+        return;
+      }
+
+      // Store for confirm step
+      pendingImportRows = parsed;
+      pendingFileName   = file.name;
+
+      // Fill info panel in modal
+      document.getElementById('importFileInfo').innerHTML = `
+        <svg class="file-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+        <div>
+          <div class="import-file-name">${file.name}</div>
+          <div class="import-file-meta">${parsed.length} task${parsed.length !== 1 ? 's' : ''} found across ${rows.length - 1} row${rows.length - 1 !== 1 ? 's' : ''}</div>
+        </div>`;
+
+      document.getElementById('importOverlay').classList.remove('hidden');
+    } catch (err) {
+      showToast('Could not read the file. Make sure it is a valid .xlsx or .csv.', 'error');
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+// ─── IMPORT: CONFIRM ──────────────────────────────
+document.getElementById('importConfirmBtn').addEventListener('click', () => {
+  if (!pendingImportRows) return;
+  const mode = document.querySelector('input[name="importMode"]:checked').value;
+
+  if (mode === 'replace') {
+    tasks = pendingImportRows;
+  } else {
+    // Append — avoid duplicate IDs
+    const existing = new Set(tasks.map(t => t.title.toLowerCase()));
+    const newOnes  = pendingImportRows.filter(t => !existing.has(t.title.toLowerCase()));
+    tasks = [...tasks, ...newOnes];
+    if (newOnes.length < pendingImportRows.length) {
+      const skipped = pendingImportRows.length - newOnes.length;
+      showToast(`Imported ${newOnes.length} tasks (${skipped} duplicate title${skipped !== 1 ? 's' : ''} skipped).`, 'success');
+      document.getElementById('importOverlay').classList.add('hidden');
+      pendingImportRows = null;
+      renderAll();
+      return;
+    }
+  }
+
+  document.getElementById('importOverlay').classList.add('hidden');
+  pendingImportRows = null;
+  renderAll();
+
+  const count = mode === 'replace' ? tasks.length : pendingImportRows?.length ?? 0;
+  showToast(`${mode === 'replace' ? 'Replaced all tasks with' : 'Imported'} ${tasks.length} task${tasks.length !== 1 ? 's' : ''} from "${pendingFileName}".`);
+});
+
+// ─── IMPORT: CANCEL / CLOSE ───────────────────────
+function closeImportModal() {
+  document.getElementById('importOverlay').classList.add('hidden');
+  pendingImportRows = null;
+}
+document.getElementById('importModalClose').addEventListener('click', closeImportModal);
+document.getElementById('importCancelBtn').addEventListener('click', closeImportModal);
+document.getElementById('importOverlay').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('importOverlay')) closeImportModal();
+});
+
+// ─── IMPORT BUTTON ────────────────────────────────
+document.getElementById('importBtn').addEventListener('click', () => {
+  document.getElementById('xlsxInput').click();
+});
+
+// ─── EXPORT TO EXCEL ──────────────────────────────
+document.getElementById('exportBtn').addEventListener('click', exportToExcel);
+
+function exportToExcel() {
+  const wb = XLSX.utils.book_new();
+
+  // ── Sheet 1: All Tasks ──────────────────────────
+  const allHeaders = ['ID','Title','Assignee ID','Assignee Name','Priority','Status',
+                      'Project','Due Date','Description','Tags'];
+  const allRows = tasks.map(t => [
+    t.id,
+    t.title,
+    t.assignee,
+    memberById(t.assignee)?.name || t.assignee,
+    PRIORITY[t.priority]?.label || t.priority,
+    STATUS_LABEL[t.status] || t.status,
+    t.project,
+    t.due || '',
+    t.desc || '',
+    (t.tags || []).join(', '),
+  ]);
+  const allSheet = XLSX.utils.aoa_to_sheet([allHeaders, ...allRows]);
+  applySheetStyle(allSheet, allHeaders.length, allRows.length);
+  XLSX.utils.book_append_sheet(wb, allSheet, 'All Tasks');
+
+  // ── Sheet 2: Today's Tasks ──────────────────────
+  const todayTasks = tasks.filter(t => isToday(t.due) || (isOverdue(t.due) && t.status !== 'done'));
+  const todayRows  = todayTasks.map(t => [
+    t.title,
+    memberById(t.assignee)?.name || t.assignee,
+    PRIORITY[t.priority]?.label || t.priority,
+    STATUS_LABEL[t.status] || t.status,
+    t.project,
+    t.due || '',
+    t.desc || '',
+  ]);
+  const todaySheet = XLSX.utils.aoa_to_sheet(
+    [['Title','Assignee','Priority','Status','Project','Due Date','Description'], ...todayRows]
+  );
+  applySheetStyle(todaySheet, 7, todayRows.length);
+  XLSX.utils.book_append_sheet(wb, todaySheet, "Today's Tasks");
+
+  // ── Sheet 3: Per-Member Summary ─────────────────
+  const summaryHeaders = ['Member','Role','Total Tasks','Active','Done','Overdue'];
+  const summaryRows = TEAM.map(m => {
+    const mt      = tasks.filter(t => t.assignee === m.id);
+    const active  = mt.filter(t => t.status !== 'done').length;
+    const done    = mt.filter(t => t.status === 'done').length;
+    const overdue = mt.filter(t => isOverdue(t.due) && t.status !== 'done').length;
+    return [m.name, m.role, mt.length, active, done, overdue];
+  });
+  const summarySheet = XLSX.utils.aoa_to_sheet([summaryHeaders, ...summaryRows]);
+  applySheetStyle(summarySheet, summaryHeaders.length, summaryRows.length);
+  XLSX.utils.book_append_sheet(wb, summarySheet, 'Team Summary');
+
+  // ── Download ────────────────────────────────────
+  const dateStamp = todayStr.replace(/-/g, '');
+  XLSX.writeFile(wb, `board-tasks-${dateStamp}.xlsx`);
+  showToast(`Exported ${tasks.length} tasks to board-tasks-${dateStamp}.xlsx`);
+}
+
+// Set column widths for readability
+function applySheetStyle(ws, numCols, numRows) {
+  const colWidths = [
+    { wch: 6 },  // ID
+    { wch: 42 }, // Title
+    { wch: 12 }, // Assignee ID
+    { wch: 18 }, // Assignee Name
+    { wch: 10 }, // Priority
+    { wch: 14 }, // Status
+    { wch: 20 }, // Project
+    { wch: 12 }, // Due Date
+    { wch: 40 }, // Description
+    { wch: 20 }, // Tags
+  ].slice(0, numCols);
+  ws['!cols'] = colWidths;
+}
+
 // ─── INIT ──────────────────────────────────────────
 renderAll();
 switchView('overview');
