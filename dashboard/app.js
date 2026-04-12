@@ -286,6 +286,37 @@ let tasks = [
   },
 ];
 
+// ─── SHARED STORAGE  (central data store shared with member.html) ────
+const STORAGE_KEY      = 'boardflow_tasks';
+const STORAGE_TEAM_KEY = 'boardflow_team';
+const STORAGE_SYNC_KEY = 'boardflow_sync';
+
+function saveToShared() {
+  try {
+    localStorage.setItem(STORAGE_KEY,      JSON.stringify(tasks));
+    localStorage.setItem(STORAGE_TEAM_KEY, JSON.stringify(TEAM));
+    localStorage.setItem(STORAGE_SYNC_KEY, new Date().toISOString());
+    updateSyncChip();
+  } catch(e) { /* storage full / private mode */ }
+}
+
+function loadFromShared() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) { tasks = JSON.parse(stored); return true; }
+  } catch(e) {}
+  return false;
+}
+
+function updateSyncChip() {
+  const el = document.getElementById('syncChip');
+  if (!el) return;
+  const t = localStorage.getItem(STORAGE_SYNC_KEY);
+  if (!t) { el.textContent = 'not synced'; return; }
+  const diff = Math.round((Date.now() - new Date(t)) / 60000);
+  el.textContent = diff < 1 ? 'synced just now' : `synced ${diff}m ago`;
+}
+
 // ─── STATE ────────────────────────────────────────
 let currentView = 'overview';
 let kanbanFilter = 'all';
@@ -634,6 +665,7 @@ function renderAll() {
   renderKanban();
   renderTeamView();
   renderMyTasks();
+  saveToShared();   // keep central store in sync after every change
 }
 
 // ─── SWITCH VIEW ──────────────────────────────────
@@ -1066,5 +1098,9 @@ function triggerDownload(content, filename, mimeType) {
 }
 
 // ─── INIT ──────────────────────────────────────────
+// Load from shared storage if available; otherwise seed it with defaults
+loadFromShared();
 renderAll();
 switchView('overview');
+// Refresh sync chip every minute
+setInterval(updateSyncChip, 60000);
