@@ -1,0 +1,24 @@
+{
+  "appId": "com.boardflow.member",
+  "productName": "BoardFlow Member",
+  "copyright": "BoardFlow Team",
+  "extraMetadata": {
+    "main": "main-member.js"
+  },
+  "files": [
+    "main-member.js",
+    "preload.js",
+    { "from": "../dashboard", "to": "dashboard", "filter": ["**/*"] }
+  ],
+  "win": {
+    "target": [
+      { "target": "portable", "arch": ["x64"] }
+    ]
+  },
+  "portable": {
+    "artifactName": "BoardFlow-Member.exe"
+  },
+  "directories": {
+    "output": "dist/member"
+  }
+}
