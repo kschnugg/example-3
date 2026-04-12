@@ -1,0 +1,24 @@
+{
+  "appId": "com.boardflow.dashboard",
+  "productName": "BoardFlow Dashboard",
+  "copyright": "BoardFlow Team",
+  "extraMetadata": {
+    "main": "main-dashboard.js"
+  },
+  "files": [
+    "main-dashboard.js",
+    "preload.js",
+    { "from": "../dashboard", "to": "dashboard", "filter": ["**/*"] }
+  ],
+  "win": {
+    "target": [
+      { "target": "portable", "arch": ["x64"] }
+    ]
+  },
+  "portable": {
+    "artifactName": "BoardFlow-Dashboard.exe"
+  },
+  "directories": {
+    "output": "dist/dashboard"
+  }
+}

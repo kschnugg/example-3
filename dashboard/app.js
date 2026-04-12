@@ -293,15 +293,26 @@ const STORAGE_SYNC_KEY = 'boardflow_sync';
 
 function saveToShared() {
   try {
-    localStorage.setItem(STORAGE_KEY,      JSON.stringify(tasks));
-    localStorage.setItem(STORAGE_TEAM_KEY, JSON.stringify(TEAM));
-    localStorage.setItem(STORAGE_SYNC_KEY, new Date().toISOString());
-    updateSyncChip();
-  } catch(e) { /* storage full / private mode */ }
+    if (window.electronAPI) {
+      // Desktop: write to %APPDATA%/BoardFlow/tasks.json (fire-and-forget)
+      window.electronAPI.saveData({ tasks, team: TEAM, sync: new Date().toISOString() });
+    } else {
+      // Browser: use localStorage
+      localStorage.setItem(STORAGE_KEY,      JSON.stringify(tasks));
+      localStorage.setItem(STORAGE_TEAM_KEY, JSON.stringify(TEAM));
+      localStorage.setItem(STORAGE_SYNC_KEY, new Date().toISOString());
+    }
+  } catch(e) { /* storage unavailable */ }
+  updateSyncChip();
 }
 
 function loadFromShared() {
   try {
+    if (window.electronAPI) {
+      const data = window.electronAPI.loadData();
+      if (data?.tasks) { tasks = data.tasks; return true; }
+      return false;
+    }
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) { tasks = JSON.parse(stored); return true; }
   } catch(e) {}
@@ -311,6 +322,12 @@ function loadFromShared() {
 function updateSyncChip() {
   const el = document.getElementById('syncChip');
   if (!el) return;
+  if (window.electronAPI) {
+    const p = window.electronAPI.getDataPath();
+    el.textContent = p;
+    el.title = p;
+    return;
+  }
   const t = localStorage.getItem(STORAGE_SYNC_KEY);
   if (!t) { el.textContent = 'not synced'; return; }
   const diff = Math.round((Date.now() - new Date(t)) / 60000);

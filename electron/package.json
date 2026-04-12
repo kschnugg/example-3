@@ -1,0 +1,17 @@
+{
+  "name": "boardflow-electron",
+  "version": "1.0.0",
+  "description": "BoardFlow — Board Design Team Task Manager (Desktop)",
+  "private": true,
+  "scripts": {
+    "start:dashboard": "electron main-dashboard.js",
+    "start:member":    "electron main-member.js",
+    "build:dashboard": "electron-builder --config config-dashboard.json",
+    "build:member":    "electron-builder --config config-member.json",
+    "build":           "npm run build:dashboard && npm run build:member"
+  },
+  "devDependencies": {
+    "electron":         "^29.4.6",
+    "electron-builder": "^24.13.3"
+  }
+}

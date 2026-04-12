@@ -64,8 +64,19 @@ function relDate(d) {
 }
 
 // ─── SHARED STORAGE ───────────────────────────────
+// Desktop (Electron): reads/writes %APPDATA%/BoardFlow/tasks.json
+// Browser:            reads/writes localStorage
 function loadFromStorage() {
   try {
+    if (window.electronAPI) {
+      const data = window.electronAPI.loadData();
+      if (data) {
+        if (data.tasks) tasks = data.tasks;
+        if (data.team)  team  = data.team;
+        return !!data.tasks;
+      }
+      return false;
+    }
     const t = localStorage.getItem(STORAGE_KEY);
     const m = localStorage.getItem(STORAGE_TEAM_KEY);
     if (t) tasks = JSON.parse(t);
@@ -76,16 +87,25 @@ function loadFromStorage() {
 
 function saveToStorage() {
   try {
-    localStorage.setItem(STORAGE_KEY,      JSON.stringify(tasks));
-    localStorage.setItem(STORAGE_SYNC_KEY, new Date().toISOString());
-    updateSyncBar();
+    if (window.electronAPI) {
+      window.electronAPI.saveData({ tasks, team, sync: new Date().toISOString() });
+    } else {
+      localStorage.setItem(STORAGE_KEY,      JSON.stringify(tasks));
+      localStorage.setItem(STORAGE_SYNC_KEY, new Date().toISOString());
+    }
   } catch(e) {}
+  updateSyncBar();
 }
 
 function updateSyncBar() {
   const dot = document.getElementById('msyncDot');
   const msg = document.getElementById('msyncStatus');
   if (!dot || !msg) return;
+  if (window.electronAPI) {
+    dot.className = 'msync-dot ok';
+    msg.textContent = `Data file: ${window.electronAPI.getDataPath()}`;
+    return;
+  }
   const t = localStorage.getItem(STORAGE_SYNC_KEY);
   if (!t) {
     dot.className = 'msync-dot err';
